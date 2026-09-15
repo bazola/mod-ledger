@@ -26,8 +26,11 @@ CREATE TABLE IF NOT EXISTS `ledger_event` (
   `actor_guid` INT UNSIGNED NOT NULL,
   `actor_is_bot` TINYINT NOT NULL,
   `event_type` VARCHAR(32) NOT NULL,      -- kill, death, pvp_kill, level_up, quest_complete, loot_item,
-                                          -- duel_won, duel_lost, group_join, group_leave, zone_change
-  `subject_guid` INT UNSIGNED NULL,       -- other character (victim, killer, opponent, group leader)
+                                          -- duel_won, duel_lost, group_join, group_leave, zone_change,
+                                          -- guild_invite, guild_join, guild_rank, guild_leave,
+                                          -- guild_found, guild_disband
+  `subject_guid` INT UNSIGNED NULL,       -- other character (victim, killer, opponent, group leader,
+                                          -- guild invitee, who changed the rank or removed the member)
   `zone_id` INT UNSIGNED NOT NULL,
   `map_id` INT UNSIGNED NOT NULL,
   `detail` VARCHAR(255) NULL,             -- JSON: creature entry, quest id, item id, ...

@@ -1,11 +1,14 @@
 #include "mod_ledger.h"
 
 #include "Channel.h"
+#include "CharacterCache.h"
 #include "Creature.h"
 #include "Group.h"
+#include "Guild.h"
 #include "Item.h"
 #include "ObjectAccessor.h"
 #include "Player.h"
+#include "PlayerbotAIConfig.h"
 #include "QuestDef.h"
 #include "ScriptMgr.h"
 
@@ -425,10 +428,95 @@ void LedgerRecordBotChat(Player* bot, uint32 type, std::string const& msg, Chann
     RecordChat(bot, type, LANG_UNIVERSAL, msg, nullptr, involvesReal, channel ? channel->GetName() : "");
 }
 
+namespace
+{
+    // Guild events name characters by guid: members are often offline when they are removed or promoted.
+    void WriteGuildEvent(ObjectGuid::LowType actor, char const* eventType, ObjectGuid::LowType subject,
+        std::string const& detail)
+    {
+        if (!Cfg().enable || !actor)
+            return;
+
+        ObjectGuid const guid = ObjectGuid::Create<HighGuid::Player>(actor);
+        if (Player* player = ObjectAccessor::FindConnectedPlayer(guid))
+            WriteEvent(player, eventType, subject, detail);
+        else
+            WriteEvent(actor, sPlayerbotAIConfig.IsInRandomAccountList(sCharacterCache->GetCharacterAccountIdByGuid(guid)),
+                0, 0, eventType, subject, detail);
+    }
+}
+
+// Invites, joins, rank changes, removals, departures, founding and disbanding (custom wow plans/18, step P1).
+// Always recorded: membership changes are rare. Guild::_LogEvent is where the core reports the member events
+// with guids; GM commands that skip it (.guild uninvite, .guild rank) and leader hand-overs are not seen.
+class LedgerGuildScript : public GuildScript
+{
+public:
+    LedgerGuildScript() : GuildScript("LedgerGuildScript", {
+        GUILDHOOK_ON_CREATE,
+        GUILDHOOK_ON_DISBAND,
+        GUILDHOOK_ON_EVENT
+    }) { }
+
+    // Guild::Create has already added the founder (a guild_join row comes first); charter signers join after.
+    void OnCreate(Guild* guild, Player* leader, std::string const& name) override
+    {
+        if (!Cfg().enable || !guild || !leader)
+            return;
+
+        WriteEvent(leader, "guild_found", 0, fmt::format("{{\"guild\":{},\"name\":{}}}", guild->GetId(), JsonString(name)));
+    }
+
+    // Runs before the members are removed; they get no guild_leave rows of their own.
+    void OnDisband(Guild* guild) override
+    {
+        if (!guild)
+            return;
+
+        WriteGuildEvent(guild->GetLeaderGUID().GetCounter(), "guild_disband", 0,
+            fmt::format("{{\"guild\":{},\"name\":{}}}", guild->GetId(), JsonString(guild->GetName())));
+    }
+
+    void OnEvent(Guild* guild, uint8 eventType, ObjectGuid::LowType guid1, ObjectGuid::LowType guid2, uint8 newRank) override
+    {
+        if (!guild)
+            return;
+
+        uint32 const id = guild->GetId();
+        switch (eventType)
+        {
+            case GUILD_EVENT_LOG_INVITE_PLAYER:     // guid1 invited guid2
+                WriteGuildEvent(guid1, "guild_invite", guid2, fmt::format("{{\"guild\":{}}}", id));
+                break;
+            case GUILD_EVENT_LOG_JOIN_GUILD:        // guid1 joined
+            {
+                Guild::Member const* member = guild->GetMember(ObjectGuid::Create<HighGuid::Player>(guid1));
+                WriteGuildEvent(guid1, "guild_join", 0,
+                    fmt::format("{{\"guild\":{},\"rank\":{}}}", id, member ? uint32(member->GetRankId()) : 0));
+                break;
+            }
+            case GUILD_EVENT_LOG_PROMOTE_PLAYER:    // guid1 changed guid2's rank
+            case GUILD_EVENT_LOG_DEMOTE_PLAYER:
+                WriteGuildEvent(guid2, "guild_rank", guid1, fmt::format("{{\"guild\":{},\"rank\":{},\"promote\":{}}}",
+                    id, uint32(newRank), eventType == GUILD_EVENT_LOG_PROMOTE_PLAYER ? 1 : 0));
+                break;
+            case GUILD_EVENT_LOG_UNINVITE_PLAYER:   // guid1 removed guid2
+                WriteGuildEvent(guid2, "guild_leave", guid1, fmt::format("{{\"guild\":{},\"removed\":1}}", id));
+                break;
+            case GUILD_EVENT_LOG_LEAVE_GUILD:       // guid1 left
+                WriteGuildEvent(guid1, "guild_leave", 0, fmt::format("{{\"guild\":{}}}", id));
+                break;
+            default:
+                break;
+        }
+    }
+};
+
 void Addmod_ledgerScripts()
 {
     new LedgerWorldScript();
     new LedgerPlayerScript();
     new LedgerUnitScript();
     new LedgerGroupScript();
+    new LedgerGuildScript();
 }
