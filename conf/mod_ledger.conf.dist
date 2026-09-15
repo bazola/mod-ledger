@@ -1,0 +1,62 @@
+[worldserver]
+
+########################################
+# mod-ledger configuration
+########################################
+#
+# Append-only capture of chat and game events into acore_characters
+# (ledger_chat, ledger_event). Capture only: no reads, no HTTP.
+# Reloads with `.reload config`.
+
+# Ledger.Enable
+#     Description: Record chat and events.
+#     Default:     1 (true)
+Ledger.Enable = 1
+
+# Ledger.RecordAllBots
+#     Description: Volume guard. When 0, a row is written only if a real player
+#                  is involved: the speaker/actor, the whisper target, the other
+#                  party of an event, a real player within listener range, or a
+#                  real player in the actor's group. Set to 1 to record every bot.
+#     Default:     0 (false)
+Ledger.RecordAllBots = 0
+
+# Ledger.RecordBotChat
+#     Description: Record every bot chat line, with or without a real player
+#                  around. Bots only speak through mod-ollama-chat here (playerbots'
+#                  canned broadcasts are off), so volume is low. Regard scoring
+#                  (/opt/wow/regard/regard.py) needs bot-to-bot talk.
+#     Default:     0 (false)
+Ledger.RecordBotChat = 0
+
+# Ledger.RecordGuildBots
+#     Description: Record events (kills, deaths, duels, quests, loot, groups) of
+#                  bots in a guild even when no real player is involved. Zone
+#                  changes stay real-player only. Feeds regard and guild rivalries.
+#     Default:     0 (false)
+Ledger.RecordGuildBots = 0
+
+# Ledger.ListenerRadius
+#     Description: Range in yards for /say and /emote: the nearest real player
+#                  within it becomes listener_guid.
+#     Default:     25
+Ledger.ListenerRadius = 25
+
+# Ledger.YellListenerRadius
+#     Description: Same as ListenerRadius, for /yell.
+#     Default:     100
+Ledger.YellListenerRadius = 100
+
+# Ledger.SkipCommands
+#     Description: Skip real-player messages that start with a playerbot command
+#                  (".playerbots", "playerbot" and every entry of
+#                  OllamaChat.BlacklistCommands, matched the way mod-ollama-chat
+#                  matches them). Bot speech is never skipped.
+#     Default:     1 (true)
+Ledger.SkipCommands = 1
+
+# Ledger.LootMinQuality
+#     Description: Lowest item quality written as loot_item.
+#                  0 poor, 1 common, 2 uncommon, 3 rare, 4 epic, 5 legendary
+#     Default:     3
+Ledger.LootMinQuality = 3
