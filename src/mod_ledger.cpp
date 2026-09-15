@@ -68,6 +68,7 @@ namespace Ledger
         cfg.yellListenerRadius = sConfigMgr->GetOption<float>("Ledger.YellListenerRadius", 100.0f);
         cfg.skipCommands       = sConfigMgr->GetOption<bool>("Ledger.SkipCommands", true);
         cfg.lootMinQuality     = sConfigMgr->GetOption<uint32>("Ledger.LootMinQuality", 3);
+        cfg.recordAuctions     = sConfigMgr->GetOption<bool>("Ledger.RecordAuctions", false);
 
         // mod-ollama-chat's built-in prefixes plus its configured list, trimmed
         // the same way it trims them.

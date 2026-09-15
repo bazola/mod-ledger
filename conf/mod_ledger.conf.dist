@@ -60,3 +60,11 @@ Ledger.SkipCommands = 1
 #                  0 poor, 1 common, 2 uncommon, 3 rare, 4 epic, 5 legendary
 #     Default:     3
 Ledger.LootMinQuality = 3
+
+# Ledger.RecordAuctions
+#     Description: Record every auction listing, sale and expiry in every house
+#                  (ledger_auction), whoever the seller or buyer is. Auctions
+#                  loaded at startup are not listings. Feeds the market service
+#                  (custom-wow services/economy/market.py).
+#     Default:     0 (false)
+Ledger.RecordAuctions = 0

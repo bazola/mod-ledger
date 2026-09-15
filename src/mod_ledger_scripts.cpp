@@ -534,6 +534,68 @@ public:
     }
 };
 
+// The auction houses' history for the market service (custom wow plans/17 §3.E.1). A sale is seen where the core
+// pays the seller, which covers won bids and buyouts alike; an expiry is an auction that ended with no bid.
+class LedgerAuctionScript : public AuctionHouseScript
+{
+public:
+    LedgerAuctionScript() : AuctionHouseScript("LedgerAuctionScript", {
+        AUCTIONHOUSEHOOK_ON_AUCTION_ADD,
+        AUCTIONHOUSEHOOK_ON_AUCTION_EXPIRE,
+        AUCTIONHOUSEHOOK_ON_BEFORE_AUCTIONHOUSEMGR_SEND_AUCTION_SUCCESSFUL_MAIL
+    }) { }
+
+    // AuctionHouseMgr::LoadAuctions adds every stored auction at startup: those are not new listings.
+    void OnAuctionAdd(AuctionHouseObject* /*ah*/, AuctionEntry* entry) override
+    {
+        if (s_worldStarted && Recording(entry))
+            WriteAuction("list", entry, 0);
+    }
+
+    void OnAuctionExpire(AuctionHouseObject* /*ah*/, AuctionEntry* entry) override
+    {
+        if (Recording(entry))
+            WriteAuction("expire", entry, 0);
+    }
+
+    void OnBeforeAuctionHouseMgrSendAuctionSuccessfulMail(AuctionHouseMgr* /*mgr*/, AuctionEntry* auction, Player* /*owner*/,
+        uint32& /*owner_accId*/, uint32& /*profit*/, bool& /*sendNotification*/, bool& /*updateAchievementCriteria*/,
+        bool& /*sendMail*/) override
+    {
+        if (Recording(auction))
+            WriteAuction("sale", auction, auction->bid);
+    }
+
+    static inline bool s_worldStarted = false;
+
+private:
+    static bool Recording(AuctionEntry* entry)
+    {
+        return entry && Cfg().enable && Cfg().recordAuctions;
+    }
+
+    static void WriteAuction(char const* event, AuctionEntry* entry, uint32 price)
+    {
+        CharacterDatabase.Execute(
+            "INSERT INTO ledger_auction (event, auction_id, house_id, item_entry, item_count, start_bid, buyout, price, owner_guid, bidder_guid) "
+            "VALUES ('{}', {}, {}, {}, {}, {}, {}, {}, {}, {})",
+            event, entry->Id, uint32(entry->houseId), entry->item_template, entry->itemCount, entry->startbid,
+            entry->buyout, price, entry->owner.GetCounter(),
+            entry->bidder ? std::to_string(entry->bidder.GetCounter()) : std::string("NULL"));
+    }
+};
+
+class LedgerStartupScript : public WorldScript
+{
+public:
+    LedgerStartupScript() : WorldScript("LedgerStartupScript", { WORLDHOOK_ON_STARTUP }) { }
+
+    void OnStartup() override
+    {
+        LedgerAuctionScript::s_worldStarted = true;
+    }
+};
+
 void Addmod_ledgerScripts()
 {
     new LedgerWorldScript();
@@ -542,4 +604,6 @@ void Addmod_ledgerScripts()
     new LedgerGroupScript();
     new LedgerGuildScript();
     new LedgerServerScript();
+    new LedgerAuctionScript();
+    new LedgerStartupScript();
 }

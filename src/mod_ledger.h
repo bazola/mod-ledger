@@ -21,6 +21,7 @@ namespace Ledger
         float yellListenerRadius = 100.0f;
         bool skipCommands = true;
         uint32 lootMinQuality = 3;
+        bool recordAuctions = false;    // auction listings, sales and expiries (ledger_auction)
         std::vector<std::string> commandPrefixes;
     };
 
