@@ -7,10 +7,13 @@
 #include "Guild.h"
 #include "Item.h"
 #include "ObjectAccessor.h"
+#include "Opcodes.h"
 #include "Player.h"
 #include "PlayerbotAIConfig.h"
 #include "QuestDef.h"
 #include "ScriptMgr.h"
+#include "WorldPacket.h"
+#include "WorldSession.h"
 
 #include <fmt/format.h>
 #include <functional>
@@ -512,6 +515,25 @@ public:
     }
 };
 
+// A real player turning down a guild invite at the dialog (custom wow plans/18, step P4 gap). The core has no guild
+// hook for it, so the decline packet is read on its way in, while the invite is still on the player.
+class LedgerServerScript : public ServerScript
+{
+public:
+    LedgerServerScript() : ServerScript("LedgerServerScript", { SERVERHOOK_CAN_PACKET_RECEIVE }) { }
+
+    bool CanPacketReceive(WorldSession* session, WorldPacket const& packet) override
+    {
+        if (packet.GetOpcode() != CMSG_GUILD_DECLINE || !Cfg().enable || !session)
+            return true;
+
+        Player* player = session->GetPlayer();
+        if (player && !player->GetGuildId() && player->GetGuildIdInvited())
+            WriteEvent(player, "guild_decline", 0, fmt::format("{{\"guild\":{}}}", player->GetGuildIdInvited()));
+        return true;
+    }
+};
+
 void Addmod_ledgerScripts()
 {
     new LedgerWorldScript();
@@ -519,4 +541,5 @@ void Addmod_ledgerScripts()
     new LedgerUnitScript();
     new LedgerGroupScript();
     new LedgerGuildScript();
+    new LedgerServerScript();
 }
