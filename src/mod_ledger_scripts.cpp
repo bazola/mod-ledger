@@ -194,21 +194,27 @@ public:
         return true;
     }
 
-    // The other half of a death, which the world has never recorded until now.
-    // The core has no hook for reclaiming a corpse and none for the spirit
-    // healer, so both arrive here and the way back has to be read off the
-    // arguments: only the spirit healer applies sickness (NPCHandler), a full
-    // restore is a raise or a battleground, and half health with no sickness
-    // is a corpse run. The fall itself is written by LedgerUnitScript.
-    void OnPlayerResurrect(Player* player, float restorePercent, bool& applySickness) override
+    // The other half of a death, which the world had never recorded until now.
+    //
+    // No method is recorded, and that is deliberate. The arguments look like
+    // they carry one -- sickness only at the spirit healer, a full restore for
+    // a raise -- and that is true of the core's own handlers, which
+    // mod-playerbots does not use. SpiritHealerAction calls
+    // ResurrectPlayer(0.5f) directly, indistinguishable here from a real corpse
+    // run; RandomPlayerbotMgr's background revive, the factory and the meeting
+    // stone all call it at 1.0 for housekeeping that is no story at all.
+    // Reading the arguments gave confident labels that were wrong -- a
+    // two-second "corpse run" among them -- so this records only that someone
+    // came back. Plan 26 section 6.10 has the way to recover the real method:
+    // have the bot AI report which path it took instead of guessing from here.
+    //
+    // The fall itself is written by LedgerUnitScript.
+    void OnPlayerResurrect(Player* player, float /*restorePercent*/, bool& /*applySickness*/) override
     {
         if (!EventGuard(player))
             return;
 
-        char const* how = applySickness         ? "healer"
-                        : restorePercent >= 0.99f ? "raised"
-                                                  : "corpse";
-        WriteEvent(player, "revive", 0, fmt::format("{{\"how\":\"{}\"}}", how));
+        WriteEvent(player, "revive", 0, "");
     }
 
     void OnPlayerCreatureKill(Player* killer, Creature* killed) override
