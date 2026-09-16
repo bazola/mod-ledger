@@ -148,6 +148,7 @@ public:
         PLAYERHOOK_ON_LOOT_ITEM,
         PLAYERHOOK_ON_DUEL_END,
         PLAYERHOOK_ON_UPDATE_ZONE,
+        PLAYERHOOK_ON_PLAYER_RESURRECT,
         PLAYERHOOK_ON_LOGOUT
     }) { }
 
@@ -191,6 +192,23 @@ public:
     {
         RecordChat(player, type, lang, msg, nullptr, false, channel ? channel->GetName() : "");
         return true;
+    }
+
+    // The other half of a death, which the world has never recorded until now.
+    // The core has no hook for reclaiming a corpse and none for the spirit
+    // healer, so both arrive here and the way back has to be read off the
+    // arguments: only the spirit healer applies sickness (NPCHandler), a full
+    // restore is a raise or a battleground, and half health with no sickness
+    // is a corpse run. The fall itself is written by LedgerUnitScript.
+    void OnPlayerResurrect(Player* player, float restorePercent, bool& applySickness) override
+    {
+        if (!EventGuard(player))
+            return;
+
+        char const* how = applySickness         ? "healer"
+                        : restorePercent >= 0.99f ? "raised"
+                                                  : "corpse";
+        WriteEvent(player, "revive", 0, fmt::format("{{\"how\":\"{}\"}}", how));
     }
 
     void OnPlayerCreatureKill(Player* killer, Creature* killed) override
